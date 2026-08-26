@@ -1,20 +1,31 @@
 # TaskFlow
 
-TaskFlow; çalışma alanı, proje ve görev yönetimini tek uygulamada birleştiren tam yığın bir örnek projedir. NestJS API, Next.js web arayüzü, PostgreSQL ve pg-boss tabanlı arka plan işlerinden oluşur.
+TaskFlow; çalışma alanı, proje ve görev yönetimini tek uygulamada birleştiren tam yığın bir proje yönetimi uygulamasıdır. Next.js arayüzü, NestJS API, PostgreSQL, Redis Search ve Docker Compose ile çalışır.
 
 ## Özellikler
 
-- Access/refresh token ile kayıt, giriş, çıkış, profil ve şifre yönetimi
-- Owner, admin ve member rollerine göre workspace yetkilendirmesi
-- Workspace, üye, proje ve görev CRUD işlemleri
-- Arama, filtre, sıralama ve sayfalama
-- Kanban görünümü ve iyimser durum güncellemesi
-- Görev yorumları ve PDF/JPEG/PNG dosya ekleri
-- Okunmamış sayılı bildirim merkezi
-- CSV ile toplu görev aktarımı, ilerleme ve hatalı satır raporu
-- Dashboard özetleri ve audit log
-- pg-boss ile bildirim, e-posta, audit, deadline ve import workerları
-- Rate limit, DTO doğrulama, global hata filtresi ve parametrik SQL
+- Access ve refresh token ile kimlik doğrulama
+- Owner, admin ve member rollerine göre yetkilendirme
+- Workspace, üye, proje ve görev yönetimi
+- Proje ve görevlerde arama, filtreleme, sıralama ve sayfalama
+- Redis Search ile hızlı proje ve görev araması
+- Redis üzerinde paylaşılan rate-limit sayaçları
+- Kanban görünümü ve görev durumu yönetimi
+- Yorumlar ve PDF/JPEG/PNG dosya ekleri
+- Bildirim merkezi, audit log ve deadline hatırlatmaları
+- CSV ile toplu görev aktarımı ve hatalı satır raporu
+- Türkçe ve İngilizce arayüz
+
+## Teknolojiler
+
+| Katman | Teknolojiler |
+| --- | --- |
+| Web | Next.js, React, TypeScript, next-intl |
+| API | NestJS, TypeScript, JWT, class-validator |
+| Veritabanı | PostgreSQL 16 |
+| Arama ve rate limiting | Redis 8, Redis Search |
+| Arka plan işleri | pg-boss |
+| Çalıştırma | Docker Compose |
 
 ## Mimari
 
@@ -23,29 +34,27 @@ Tarayıcı (Next.js)
         |
         | HTTP + JWT
         v
-NestJS API -----> PostgreSQL
+NestJS API --------------------> PostgreSQL
+    |                                |
+    |                                `-> search_outbox
     |
-    +----------> pg-boss workerları
-                    |- bildirim
-                    |- e-posta
-                    |- audit log
-                    |- deadline reminder
-                    `- CSV parse / batch insert
+    +--------------------------> Redis
+    |                              |- proje/görev arama indeksleri
+    |                              `- rate-limit sayaçları
+    |
+    `--------------------------> pg-boss workerları
+                                   |- bildirim ve e-posta
+                                   |- audit ve deadline
+                                   `- CSV parse / batch insert
 ```
 
-Frontend her özellikte aynı katman sırasını kullanır:
+PostgreSQL uygulamanın ana veri kaynağıdır. Redis, projelerin ve görevlerin aranabilir kopyalarını tutar. PostgreSQL değişiklikleri `search_outbox` tablosuna yazılır ve senkronizasyon servisi bunları Redis’e aktarır. Redis geçici olarak kullanılamazsa proje ve görev listeleme işlemleri PostgreSQL sorgusuna geri döner.
+
+Frontend özellikleri genel olarak şu katman sırasını kullanır:
 
 ```text
 types -> service -> hook -> component -> app/page
 ```
-
-- `types`: API’ye giden ve API’den dönen verinin TypeScript şekli.
-- `service`: HTTP endpoint çağrıları.
-- `hook`: loading, error, state ve işlem akışı.
-- `component`: arayüz ve kullanıcı etkileşimi.
-- `page`: URL’yi erişilebilir yapan Next.js route dosyası.
-
-Detaylı şema için [veritabanı dokümanına](docs/database-schema.md) bakın.
 
 ## Ekran görüntüleri
 
@@ -61,146 +70,104 @@ Detaylı şema için [veritabanı dokümanına](docs/database-schema.md) bakın.
 
 ![TaskFlow çalışma alanları sayfası](docs/screenshots/workspaces.png)
 
-## Hızlı başlangıç: Docker
+## Docker ile çalıştırma
 
 Gereksinimler: Docker Desktop ve Docker Compose.
 
-1. `.env.example` dosyasını `.env` olarak kopyalayın.
+1. `.env.example` dosyasını `.env` adıyla kopyalayın.
 2. `JWT_SECRET` değerini en az 32 karakterlik rastgele bir değerle değiştirin.
 3. E-posta gönderilecekse SMTP alanlarını doldurun.
-4. Servisleri başlatın:
+4. Proje kökünde aşağıdaki komutu çalıştırın:
 
 ```bash
 docker compose up -d --build
-docker compose ps
 ```
 
-Adresler:
+Uygulama adresleri:
 
 - Web: `http://localhost:3000`
 - API: `http://localhost:4000`
-- PostgreSQL (host): `localhost:5433`
+- PostgreSQL: `localhost:5433`
 
-Compose önce PostgreSQL healthcheck’ini bekler, sonra `migrate` servisi uygulanmamış SQL dosyalarını çalıştırır. API migration tamamlandıktan, web ise API sağlıklı olduktan sonra başlar.
+Redis yalnızca Docker ağı içinde API tarafından kullanılır. PostgreSQL sağlıklı hale geldiğinde migration servisi çalışır. API; migration işleminin tamamlanmasını ve Redis’in hazır olmasını bekler, ardından web başlatılır.
+
+Servisleri kontrol etmek veya durdurmak için:
 
 ```bash
-docker compose run --rm migrate
+docker compose ps
 docker compose logs --tail=100 api
-docker compose logs --tail=100 web
 docker compose down
 ```
 
-`docker compose down` veritabanı ve upload volume’larını silmez. Verileri silen `down -v` komutunu yalnız gerçekten sıfırlamak istediğinizde kullanın.
+`docker compose down` kalıcı volume verilerini silmez. `docker compose down -v` ise PostgreSQL, Redis ve upload volume verilerini siler; yalnızca tamamen sıfırlamak istediğinizde kullanın.
 
-## Yerel geliştirme
+## Geliştirme modu
 
-PostgreSQL’i Docker ile çalıştırıp API ve web’i host üzerinde açabilirsiniz:
-
-```bash
-docker compose up -d postgres
-docker compose run --rm migrate
-npm --prefix api install
-npm --prefix web install
-```
-
-Yerel API için `DATABASE_HOST=localhost` ve `DATABASE_PORT=5433` kullanın.
+Web tarafındaki değişiklikleri Docker image’ını tekrar oluşturmadan görmek için ana compose dosyasını geliştirme override dosyasıyla birlikte çalıştırın:
 
 ```bash
-npm --prefix api run start:dev
-npm --prefix web run dev
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 ```
 
-## Roller
+Bu modda `web/` klasörü konteynere bağlanır ve Next.js değişiklikleri otomatik yeniler. API kaynak kodu için production image kullanıldığı için API değişikliklerinden sonra API servisini yeniden build etmek gerekir.
 
-| İşlem | Owner | Admin | Member |
-| --- | :---: | :---: | :---: |
-| Workspace güncelle/sil | Evet | Hayır | Hayır |
-| Üye ekle/rol değiştir/çıkar | Evet | Evet | Hayır |
-| Proje oluştur/güncelle/sil | Evet | Evet | Hayır |
-| Görev oluştur/sil/atama | Evet | Evet | Hayır |
-| Atandığı görevin durumunu güncelle | Evet | Evet | Evet |
-| Yorum ekle, kendi yorumunu düzenle | Evet | Evet | Evet |
-| Yorum veya dosya sil | Evet | Evet | Hayır |
-| CSV aktar | Evet | Evet | Hayır |
+## Redis Search akışı
 
-Üye workspace’ten çıkarıldığında tamamlanmamış ve o üyeye atanmış görevlerin `assigned_to` alanı `NULL` yapılır. Tamamlanmış görevlerin geçmiş atama bilgisi korunur.
+1. Proje veya görev PostgreSQL’de oluşturulur, güncellenir ya da silinir.
+2. Veritabanı trigger’ı olayı `search_outbox` tablosuna ekler.
+3. `SearchSyncService` olayı işler.
+4. `SearchDocumentService` ilgili Redis hash kaydını ekler, günceller veya siler.
+5. `SearchIndexService` proje ve görev indekslerini hazırlar.
+6. Arama servisleri filtreleme, sıralama ve sayfalamayı Redis Search üzerinden yapar.
 
-## Token akışı
+Uygulama ilk açıldığında PostgreSQL’deki aktif projeler ve görevler Redis ile tekrar karşılaştırılır. Böylece kaçırılmış bir outbox olayı veya silinmiş Redis verisi düzeltilir.
 
-Access token kısa ömürlüdür. Ortak web API servisi 401 cevabı alırsa refresh token ile bir kez yeni token çifti ister ve ilk isteği tekrarlar. Aynı anda gelen 401 cevapları tek refresh isteğini paylaşır. Refresh geçersizse yerel tokenlar temizlenir ve kullanıcı giriş sayfasına yönlendirilir.
+## Testler
 
-## CSV biçimi
+```bash
+npm --prefix api test -- --runInBand
+npm --prefix api run build
 
-Başlıklar tam olarak şu sırada olmalıdır:
+npm --prefix web run lint
+npm --prefix web run build
+```
+
+Çalışan Docker servisleri üzerinde genel akışı kontrol etmek için:
+
+```bash
+node scripts/smoke-test.mjs
+```
+
+## CSV aktarımı
+
+CSV başlıkları şu sırada olmalıdır:
 
 ```csv
 title,description,status,priority,due_date,assigned_email
 ```
 
-- `status`: `backlog`, `todo`, `in_progress`, `review`, `completed`
-- `priority`: `low`, `medium`, `high`, `urgent`
-- `due_date`: boş veya geçerli ISO tarih (`YYYY-MM-DD` önerilir)
-- `assigned_email`: boş veya aynı workspace’in aktif bir üyesi
-- Maksimum dosya boyutu: 25 MB
-- Batch boyutu: 500 satır
+Örnek dosyalar [samples/csv](samples/csv) klasöründedir. Performans dosyalarını yeniden oluşturmak için `node scripts/generate-test-csv.mjs` kullanılabilir.
 
-Örnekler [samples/csv](samples/csv) klasöründedir. Performans dosyalarını yeniden üretmek için:
+## Dokümantasyon
 
-```bash
-node scripts/generate-test-csv.mjs
-```
-
-Her 100. satır bilerek hatalı status içerir; böylece satır izolasyonu test edilir.
-
-## API koleksiyonu
-
-[TaskFlow Postman koleksiyonu](docs/TaskFlow.postman_collection.json) temel endpointleri ve ortam değişkenlerini içerir. Login isteğinin test script’i `accessToken` ve `refreshToken` değişkenlerini otomatik kaydeder. ID değişkenlerini oluşturduğunuz kayıtlarla güncelleyin.
-
-## Test ve kalite komutları
-
-```bash
-npm --prefix api test -- --runInBand
-npm --prefix api run build
-npm --prefix api run test:e2e
-npx --prefix api eslint "{src,test}/**/*.ts"
-
-npm --prefix web run lint
-npm --prefix web run build
-npm --prefix web audit --omit=dev
-npm --prefix api audit --omit=dev
-node scripts/smoke-test.mjs
-```
-
-`smoke-test.mjs`, Gmail plus-address kullanarak geçici bir test kullanıcısı oluşturur; auth, workspace, proje, görev, yorum, attachment, CSV import, dashboard, token yenileme ve e-posta kuyruğunu gerçek çalışan servisler üzerinde sınar. Test workspace'i sonunda temizlenir.
-
-E2E testi host üzerinden Docker PostgreSQL’e bağlanırken:
-
-```powershell
-$env:DATABASE_HOST='localhost'
-$env:DATABASE_PORT='5433'
-npm.cmd --prefix api run test:e2e
-```
-
-Son doğrulamada 21 unit test paketi/37 test, 1 E2E testi, API ve web production buildleri başarıyla geçti. Docker üzerinde auth, workspace, üyelik, proje, görev atama, member yetkisi, yorum, bildirim, attachment, dashboard, refresh token ve CSV satır izolasyonu smoke test edildi.
-
-## Güvenlik ve saklama
-
-- Parolalar bcrypt ile hashlenir; refresh ve reset tokenları düz metin tutulmaz.
-- SQL sorguları parametrelidir.
-- DTO alanları global `ValidationPipe` ile whitelist edilir.
-- Upload MIME ve boyut kontrolleri hem web hem API tarafında yapılır.
-- Attachment dosyaları `api_uploads` Docker volume’unda UUID adıyla saklanır.
-- Silinen workspace/proje/görev kayıtları soft delete ile erişimden çıkarılır.
-- `.env` içindeki secret ve SMTP bilgilerini repoya eklemeyin.
+- [Veritabanı şeması](docs/database-schema.md)
+- [Postman koleksiyonu](docs/TaskFlow.postman_collection.json)
+- [Proje gereksinimleri ve kontrol listesi](taskflow-project-task.md)
 
 ## Önemli klasörler
 
 ```text
-api/                 NestJS API ve workerlar
+api/                 NestJS API, arama ve worker servisleri
 web/                 Next.js App Router arayüzü
-db/migrations/       Sıralı PostgreSQL migrationları
-db/migrate.sh        Migration runner
-docs/                Şema ve Postman koleksiyonu
+db/migrations/       PostgreSQL migration dosyaları
+docs/                Şema, Postman koleksiyonu ve ekran görüntüleri
 samples/csv/         CSV örnekleri ve performans dosyaları
-scripts/             Yardımcı üretim scriptleri
+scripts/             Test ve yardımcı scriptler
 ```
+
+## Güvenlik notları
+
+- `.env` dosyasını ve gerçek secret değerlerini repoya eklemeyin.
+- Parolalar bcrypt ile hashlenir; refresh ve reset tokenları düz metin tutulmaz.
+- SQL sorguları parametrelidir ve DTO verileri global doğrulamadan geçer.
+- Upload dosyaları MIME türü ve boyut kontrollerinden geçirilir.
