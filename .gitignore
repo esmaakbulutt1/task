@@ -1,0 +1,16 @@
+# Gizli bilgiler
+.env
+.env.*
+!.env.example
+
+# Bağımlılıklar
+/node_modules/
+
+# Oluşturulan dosyalar
+/api/dist/
+/api/uploads/
+/web/.next/
+/web/out/
+
+# Loglar
+*.log

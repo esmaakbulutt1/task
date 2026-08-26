@@ -1,0 +1,18 @@
+services:
+  web:
+    image: task-web-dev
+    build:
+      context: ./web
+      target: dependencies
+    command: npm run dev -- --hostname 0.0.0.0
+    restart: "no"
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      WATCHPACK_POLLING: "true"
+    volumes:
+      - ./web:/app
+      - web_node_modules:/app/node_modules
+
+volumes:
+  web_node_modules:

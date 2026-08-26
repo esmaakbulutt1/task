@@ -1,0 +1,299 @@
+{
+  "info": {
+    "name": "TaskFlow API",
+    "description": "TaskFlow temel ve ileri seviye API akışları. Login isteği token değişkenlerini otomatik kaydeder.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{accessToken}}", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:4000" },
+    { "key": "email", "value": "owner@example.com" },
+    { "key": "password", "value": "StrongPass123!" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" },
+    { "key": "workspaceId", "value": "" },
+    { "key": "memberId", "value": "" },
+    { "key": "memberEmail", "value": "member@example.com" },
+    { "key": "projectId", "value": "" },
+    { "key": "taskId", "value": "" },
+    { "key": "commentId", "value": "" },
+    { "key": "attachmentId", "value": "" },
+    { "key": "notificationId", "value": "" },
+    { "key": "jobId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"name\": \"Task\",\n  \"surname\": \"Owner\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/register"
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const response = pm.response.json();",
+                  "  pm.collectionVariables.set('accessToken', response.access_token);",
+                  "  pm.collectionVariables.set('refreshToken', response.refresh_token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/login"
+          }
+        },
+        {
+          "name": "Refresh",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}" },
+            "url": "{{baseUrl}}/auth/refresh"
+          }
+        },
+        {
+          "name": "Get Profile",
+          "request": { "method": "GET", "url": "{{baseUrl}}/auth/profile" }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated\",\n  \"surname\": \"Owner\"\n}" },
+            "url": "{{baseUrl}}/auth/profile"
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{email}}\"\n}" },
+            "url": "{{baseUrl}}/auth/forgot-password"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}" },
+            "url": "{{baseUrl}}/auth/logout"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Workspaces and Members",
+      "item": [
+        {
+          "name": "List Workspaces",
+          "request": { "method": "GET", "url": "{{baseUrl}}/workspaces" }
+        },
+        {
+          "name": "Create Workspace",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Product Team\",\n  \"description\": \"Main workspace\"\n}" },
+            "url": "{{baseUrl}}/workspaces"
+          }
+        },
+        {
+          "name": "Get Workspace",
+          "request": { "method": "GET", "url": "{{baseUrl}}/workspaces/{{workspaceId}}" }
+        },
+        {
+          "name": "Add Member",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{memberEmail}}\",\n  \"role\": \"member\"\n}" },
+            "url": "{{baseUrl}}/workspaces/{{workspaceId}}/members"
+          }
+        },
+        {
+          "name": "List Members",
+          "request": { "method": "GET", "url": "{{baseUrl}}/workspaces/{{workspaceId}}/members" }
+        },
+        {
+          "name": "Update Member Role",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"role\": \"admin\"\n}" },
+            "url": "{{baseUrl}}/workspaces/{{workspaceId}}/members/{{memberId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Projects",
+      "item": [
+        {
+          "name": "List Projects",
+          "request": { "method": "GET", "url": "{{baseUrl}}/workspaces/{{workspaceId}}/projects?page=1&limit=10&sort=created_at&order=desc" }
+        },
+        {
+          "name": "Create Project",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Release 1\",\n  \"description\": \"First release\",\n  \"status\": \"active\",\n  \"dueDate\": \"2026-12-31\"\n}" },
+            "url": "{{baseUrl}}/workspaces/{{workspaceId}}/projects"
+          }
+        },
+        {
+          "name": "Get Project",
+          "request": { "method": "GET", "url": "{{baseUrl}}/projects/{{projectId}}" }
+        }
+      ]
+    },
+    {
+      "name": "Tasks",
+      "item": [
+        {
+          "name": "List Tasks",
+          "request": { "method": "GET", "url": "{{baseUrl}}/projects/{{projectId}}/tasks?page=1&limit=10&sort=created_at&order=desc" }
+        },
+        {
+          "name": "Create Task",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Prepare release\",\n  \"description\": \"Complete checklist\",\n  \"status\": \"todo\",\n  \"priority\": \"high\",\n  \"dueDate\": \"2026-12-31\"\n}" },
+            "url": "{{baseUrl}}/projects/{{projectId}}/tasks"
+          }
+        },
+        {
+          "name": "Get Task",
+          "request": { "method": "GET", "url": "{{baseUrl}}/tasks/{{taskId}}" }
+        },
+        {
+          "name": "Update Task Status",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"in_progress\"\n}" },
+            "url": "{{baseUrl}}/tasks/{{taskId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Comments and Attachments",
+      "item": [
+        {
+          "name": "List Comments",
+          "request": { "method": "GET", "url": "{{baseUrl}}/tasks/{{taskId}}/comments" }
+        },
+        {
+          "name": "Create Comment",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"content\": \"Task note\"\n}" },
+            "url": "{{baseUrl}}/tasks/{{taskId}}/comments"
+          }
+        },
+        {
+          "name": "Update Comment",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"content\": \"Updated task note\"\n}" },
+            "url": "{{baseUrl}}/comments/{{commentId}}"
+          }
+        },
+        {
+          "name": "Upload Attachment",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [{ "key": "file", "type": "file", "src": "" }]
+            },
+            "url": "{{baseUrl}}/tasks/{{taskId}}/attachments"
+          }
+        },
+        {
+          "name": "List Attachments",
+          "request": { "method": "GET", "url": "{{baseUrl}}/tasks/{{taskId}}/attachments" }
+        }
+      ]
+    },
+    {
+      "name": "Notifications, Dashboard and Import",
+      "item": [
+        {
+          "name": "Dashboard Summary",
+          "request": { "method": "GET", "url": "{{baseUrl}}/dashboard/summary" }
+        },
+        {
+          "name": "List Notifications",
+          "request": { "method": "GET", "url": "{{baseUrl}}/notifications?page=1&limit=10" }
+        },
+        {
+          "name": "Mark Notification Read",
+          "request": { "method": "PATCH", "url": "{{baseUrl}}/notifications/{{notificationId}}/read" }
+        },
+        {
+          "name": "Mark All Notifications Read",
+          "request": { "method": "PATCH", "url": "{{baseUrl}}/notifications/read-all" }
+        },
+        {
+          "name": "Upload CSV Import",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [{ "key": "file", "type": "file", "src": "" }]
+            },
+            "url": "{{baseUrl}}/projects/{{projectId}}/import/upload"
+          }
+        },
+        {
+          "name": "Import Status",
+          "request": { "method": "GET", "url": "{{baseUrl}}/imports/{{jobId}}/status" }
+        },
+        {
+          "name": "Import Failed Rows",
+          "request": { "method": "GET", "url": "{{baseUrl}}/imports/{{jobId}}/failed-rows?page=1&limit=20" }
+        }
+      ]
+    }
+  ]
+}
