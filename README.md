@@ -171,3 +171,13 @@ scripts/             Test ve yardımcı scriptler
 - Parolalar bcrypt ile hashlenir; refresh ve reset tokenları düz metin tutulmaz.
 - SQL sorguları parametrelidir ve DTO verileri global doğrulamadan geçer.
 - Upload dosyaları MIME türü ve boyut kontrollerinden geçirilir.
+
+
+## CI/CD
+
+- **CI:** API ve Web için lint, test ve build kontrollerini çalıştırır.
+- **CD:** CI başarılı olursa Docker image’larını GitHub Container Registry’ye yayınlar.
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.release.yml up -d
+```
