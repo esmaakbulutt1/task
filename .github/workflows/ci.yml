@@ -1,0 +1,71 @@
+name: TaskFlow CI
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+permissions:
+  contents: read
+
+jobs:
+  api:
+    name: API kontrolleri
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: api
+
+    steps:
+      - name: Proje kodlarını al
+        uses: actions/checkout@v6      
+      - name: Node.js hazırla
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+
+      - name: API paketlerini kur
+        run: npm ci        
+      - name: API lint kontrolü
+        run: npx eslint "{src,apps,libs,test}/**/*.ts"
+
+      - name: API testlerini çalıştır
+        run: npm test -- --runInBand
+
+      - name: API build oluştur
+        run: npm run build        
+  web:
+    name: Web kontrolleri
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - name: Proje kodlarını al
+        uses: actions/checkout@v6
+
+      - name: Node.js hazırla
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Web paketlerini kur
+        run: npm ci     
+      - name: Web lint kontrolü
+        run: npm run lint
+
+      - name: Web build oluştur
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:4000         
+
