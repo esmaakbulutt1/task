@@ -1,0 +1,10 @@
+services:
+  api:
+    image: ghcr.io/esmaakbulutt1/taskflow-api:latest
+    build: !reset null
+    pull_policy: always
+
+  web:
+    image: ghcr.io/esmaakbulutt1/taskflow-web:latest
+    build: !reset null
+    pull_policy: always
